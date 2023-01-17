@@ -1,6 +1,6 @@
 from measurements import Measurement
 
-PRECISION: int = 16
+PRECISION: int = 32
 
 
 def existing_nursery_builtin() -> None:

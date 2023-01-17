@@ -1,12 +1,6 @@
-import re
 from fractions import Fraction
 from numbers import Real
-from typing import Optional, Union
-
-
-REGEX = re.compile(
-    r"((?P<feet>[0-9]+)\' )?((?P<inches>[0-9]+)\"?) ?((?P<frac_num>[0-9]+)\/(?P<frac_denom>[0-9]+)\"?)?"
-)
+from typing import List, Union
 
 
 class Measurement:
@@ -40,29 +34,49 @@ class Measurement:
         self._format = format
 
     @classmethod
-    def from_string(cls, string, *, precision: int = 64) -> None:
-        def to_int(x: Optional[str]) -> Optional[int]:
-            if x is None:
-                return x
+    def from_string(cls, string) -> "Measurement":
+        parts: List[str] = string.split(" ")
 
-            return int(x)
+        if len(parts) == 3:
+            feet, inches, frac = [i.replace('"', "").replace("'", "") for i in parts]
+            return Measurement(
+                feet=int(feet),
+                inches=int(inches),
+                fraction=Fraction(frac),
+            )
 
-        matches = REGEX.search(string)
-        feet: Optional[int] = to_int(matches.group("feet"))
-        inches: Optional[int] = to_int(matches.group("inches"))
-        frac_num: Optional[int] = to_int(matches.group("frac_num"))
-        frac_denom: Optional[int] = to_int(matches.group("frac_denom"))
+        if len(parts) == 2:
+            first, second = parts
 
-        fraction = None
-        if frac_num is not None and frac_denom is not None:
-            fraction = Fraction(frac_num, frac_denom)
+            if "'" in first:
+                feet = int(first.replace("'", ""))
+                if "/" in second:
+                    return Measurement(
+                        feet=feet,
+                        fraction=Fraction(second.replace('"', "")),
+                    )
 
-        return cls(
-            inches=inches,
-            fraction=fraction,
-            feet=feet,
-            precision=precision,
-        )
+                return Measurement(
+                    feet=feet,
+                    inches=int(second.replace('"', "")),
+                )
+
+            return Measurement(
+                inches=int(first),
+                fraction=Fraction(second.replace('"', "")),
+            )
+
+        if len(parts) == 1:
+            distance: str = parts[0]
+            if "'" in distance:
+                return Measurement(feet=int(distance.replace("'", "")))
+
+            if "/" in distance:
+                return Measurement(fraction=Fraction(distance.replace('"', "")))
+
+            return Measurement(inches=int(distance.replace('"', "")))
+
+        raise ValueError(f"Cannot parse {string} as Measurement")
 
     def __add__(self, other: Union["Measurement", Real]) -> "Measurement":
         if type(other) is Measurement:
@@ -73,11 +87,26 @@ class Measurement:
 
         return Measurement(self._distance + other)
 
+    def __sub__(self, other: Union["Measurement", Real]) -> "Measurement":
+        if type(other) is Measurement:
+            return Measurement(
+                self._distance - other._distance,
+                precision=max(self._precision, other._precision),
+            )
+
+        return Measurement(self._distance - other)
+
     def __mul__(self, factor: int) -> "Measurement":
         return Measurement(self._distance * factor, precision=self._precision)
 
     def __radd__(self, other):
         return self + other
+
+    def __eq__(self, other: Union["Measurement", Real]):
+        if type(other) is Measurement:
+            return self._distance == other._distance
+
+        return self._distance == other
 
     def __str__(self) -> str:
         feet = int()
