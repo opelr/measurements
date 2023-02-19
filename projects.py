@@ -1,6 +1,6 @@
 from measurements import Measurement
 
-PRECISION: int = 32
+PRECISION: int = 16
 
 
 def existing_nursery_builtin() -> None:
@@ -16,5 +16,11 @@ def existing_nursery_builtin() -> None:
     print(f"Width: {total_width}")
 
 
+def door_height() -> None:
+    height = Measurement.from_string('23 43/64"', precision=PRECISION)
+    print(f"Mid-Point: {height / 2}")
+
+
 if __name__ == "__main__":
     existing_nursery_builtin()
+    door_height()

@@ -59,3 +59,35 @@ def test_str(measurement: Measurement, string: str):
 )
 def test_precision(precision: int, string: str):
     assert str(Measurement(fraction=Fraction(51, 64), precision=precision)) == string
+
+
+@pytest.mark.parametrize(
+    "string, factor, expected",
+    [
+        ("12", 2, Measurement(inches=24)),
+        ('13 1/3"', 3, Measurement(inches=40)),
+        ("1'", 4, Measurement(inches=48)),
+    ],
+)
+def test_multiply(
+    string: str,
+    factor: int,
+    expected: Measurement,
+):
+    assert Measurement.from_string(string) * factor == expected
+
+
+@pytest.mark.parametrize(
+    "string, factor, expected",
+    [
+        ("12", 2, Measurement(inches=6)),
+        ('13"', 3, Measurement(inches=4, fraction=Fraction(1, 3))),
+        ("4'", 4, Measurement(feet=1)),
+    ],
+)
+def test_divide(
+    string: str,
+    factor: int,
+    expected: Measurement,
+):
+    assert Measurement.from_string(string) / factor == expected

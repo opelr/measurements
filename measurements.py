@@ -34,15 +34,19 @@ class Measurement:
         self._format = format
 
     @classmethod
-    def from_string(cls, string) -> "Measurement":
+    def from_string(
+        cls, string: str, *, format: str = "inches", precision: int = 64
+    ) -> "Measurement":
         parts: List[str] = string.split(" ")
 
         if len(parts) == 3:
             feet, inches, frac = [i.replace('"', "").replace("'", "") for i in parts]
-            return Measurement(
+            return cls(
                 feet=int(feet),
                 inches=int(inches),
                 fraction=Fraction(frac),
+                format=format,
+                precision=precision,
             )
 
         if len(parts) == 2:
@@ -51,30 +55,46 @@ class Measurement:
             if "'" in first:
                 feet = int(first.replace("'", ""))
                 if "/" in second:
-                    return Measurement(
+                    return cls(
                         feet=feet,
                         fraction=Fraction(second.replace('"', "")),
                     )
 
-                return Measurement(
+                return cls(
                     feet=feet,
                     inches=int(second.replace('"', "")),
+                    format=format,
+                    precision=precision,
                 )
 
-            return Measurement(
+            return cls(
                 inches=int(first),
                 fraction=Fraction(second.replace('"', "")),
+                format=format,
+                precision=precision,
             )
 
         if len(parts) == 1:
             distance: str = parts[0]
             if "'" in distance:
-                return Measurement(feet=int(distance.replace("'", "")))
+                return cls(
+                    feet=int(distance.replace("'", "")),
+                    format=format,
+                    precision=precision,
+                )
 
             if "/" in distance:
-                return Measurement(fraction=Fraction(distance.replace('"', "")))
+                return cls(
+                    fraction=Fraction(distance.replace('"', "")),
+                    format=format,
+                    precision=precision,
+                )
 
-            return Measurement(inches=int(distance.replace('"', "")))
+            return cls(
+                inches=int(distance.replace('"', "")),
+                format=format,
+                precision=precision,
+            )
 
         raise ValueError(f"Cannot parse {string} as Measurement")
 
@@ -98,6 +118,9 @@ class Measurement:
 
     def __mul__(self, factor: int) -> "Measurement":
         return Measurement(self._distance * factor, precision=self._precision)
+
+    def __truediv__(self, factor: int) -> "Measurement":
+        return Measurement(self._distance / factor, precision=self._precision)
 
     def __radd__(self, other):
         return self + other
