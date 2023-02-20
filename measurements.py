@@ -1,6 +1,12 @@
+from enum import Enum
 from fractions import Fraction
 from numbers import Real
 from typing import List, Union
+
+
+class Format(str, Enum):
+    inches = "inches"
+    feet = "feet"
 
 
 class Measurement:
@@ -12,7 +18,7 @@ class Measurement:
         fraction: Real = None,
         *,
         feet: int = None,
-        format: str = "inches",
+        format: Format = Format.inches,
         precision: int = 64,
     ) -> None:
         if feet is None:
@@ -27,15 +33,16 @@ class Measurement:
             fraction = Fraction(fraction)
 
         self._distance: float = (feet * 12) + inches + fraction
-        self._precision = precision
 
-        if format not in ["inches", "feet"]:
-            raise ValueError("'format' must be 'inches' or 'feet'")
+        __power_of_two = precision & (precision - 1) == 0 or precision == 1
+        if precision > 64 or not __power_of_two:
+            raise ValueError(f"{precision} must be <= 64 and a power of two")
+        self._precision = precision
         self._format = format
 
     @classmethod
     def from_string(
-        cls, string: str, *, format: str = "inches", precision: int = 64
+        cls, string: str, *, format: Format = Format.inches, precision: int = 64
     ) -> "Measurement":
         parts: List[str] = string.split(" ")
 
@@ -122,8 +129,11 @@ class Measurement:
     def __truediv__(self, factor: int) -> "Measurement":
         return Measurement(self._distance / factor, precision=self._precision)
 
-    def __radd__(self, other):
+    def __radd__(self, other: "Measurement") -> "Measurement":
         return self + other
+
+    def __rmul__(self, other: "Measurement") -> "Measurement":
+        return self * other
 
     def __eq__(self, other: Union["Measurement", Real]):
         if type(other) is Measurement:
@@ -135,7 +145,7 @@ class Measurement:
         feet = int()
         inches = int()
 
-        if self._format == "feet":
+        if self._format == Format.feet:
             feet = int(self._distance // 12)
             inches = int(self._distance % 12 // 1)
         else:

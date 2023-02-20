@@ -1,43 +1,73 @@
+from contextlib import contextmanager
 from fractions import Fraction
+from typing import List
 
 import pytest
 
-from measurements import Measurement
+from measurements import Format, Measurement
+
+
+class NullContext:
+    """
+    No-op context for asserting raised exceptions in parametrized test cases
+    """
+
+    def __enter__(self, *args, **kwargs):
+        pass
+
+    def __exit__(self, *args, **kwargs):
+        pass
+
+
+does_not_raise = NullContext()
 
 
 @pytest.mark.parametrize(
-    "string, measurement",
+    "string, measurement, context",
     [
-        ("124", Measurement(inches=124)),
-        ('124"', Measurement(inches=124)),
-        ("1 13/16", Measurement(inches=1, fraction=Fraction(13 / 16))),
-        ('1 13/16"', Measurement(inches=1, fraction=Fraction(13 / 16))),
-        ("13/16", Measurement(fraction=Fraction(13 / 16))),
-        ('13/16"', Measurement(fraction=Fraction(13 / 16))),
-        ('''5' 1 13/16"''', Measurement(feet=5, inches=1, fraction=Fraction(13 / 16))),
-        ("6'", Measurement(feet=6)),
-        ("6' 3", Measurement(feet=6, inches=3)),
-        ("6' 3\"", Measurement(feet=6, inches=3)),
-        pytest.param('5" 1/2"', None, marks=pytest.mark.xfail),
+        ("124", Measurement(inches=124), does_not_raise),
+        ('124"', Measurement(inches=124), does_not_raise),
+        ("1 13/16", Measurement(inches=1, fraction=Fraction(13 / 16)), does_not_raise),
+        ('1 13/16"', Measurement(inches=1, fraction=Fraction(13 / 16)), does_not_raise),
+        ("13/16", Measurement(fraction=Fraction(13 / 16)), does_not_raise),
+        ('13/16"', Measurement(fraction=Fraction(13 / 16)), does_not_raise),
+        (
+            '''5' 1 13/16"''',
+            Measurement(feet=5, inches=1, fraction=Fraction(13 / 16)),
+            does_not_raise,
+        ),
+        ("6'", Measurement(feet=6), does_not_raise),
+        ("6' 3", Measurement(feet=6, inches=3), does_not_raise),
+        ("6' 3\"", Measurement(feet=6, inches=3), does_not_raise),
+        ('5" 1/2"', None, pytest.raises(ValueError)),
     ],
 )
-def test_from_string(string: str, measurement: Measurement):
-    assert Measurement.from_string(string) == measurement
+def test_from_string(string: str, measurement: Measurement, context: contextmanager):
+    with context:
+        assert Measurement.from_string(string) == measurement
 
 
 @pytest.mark.parametrize(
     "measurement, string",
     [
-        (Measurement(inches=18.5, format="inches"), '18 1/2"'),
-        (Measurement(inches=18.5, format="feet"), "1' 6 1/2\""),
-        (Measurement(inches=18, fraction=Fraction(1, 2), format="inches"), '18 1/2"'),
-        (Measurement(inches=18, fraction=Fraction(1, 2), format="feet"), "1' 6 1/2\""),
+        (Measurement(inches=18.5, format=Format.inches), '18 1/2"'),
+        (Measurement(inches=18.5, format=Format.feet), "1' 6 1/2\""),
         (
-            Measurement(feet=1, inches=6, fraction=Fraction(1, 2), format="inches"),
+            Measurement(inches=18, fraction=Fraction(1, 2), format=Format.inches),
             '18 1/2"',
         ),
         (
-            Measurement(feet=1, inches=6, fraction=Fraction(1, 2), format="feet"),
+            Measurement(inches=18, fraction=Fraction(1, 2), format=Format.feet),
+            "1' 6 1/2\"",
+        ),
+        (
+            Measurement(
+                feet=1, inches=6, fraction=Fraction(1, 2), format=Format.inches
+            ),
+            '18 1/2"',
+        ),
+        (
+            Measurement(feet=1, inches=6, fraction=Fraction(1, 2), format=Format.feet),
             "1' 6 1/2\"",
         ),
     ],
@@ -47,18 +77,24 @@ def test_str(measurement: Measurement, string: str):
 
 
 @pytest.mark.parametrize(
-    "precision, string",
+    "fraction, precision, string, expect",
     [
-        (64, '51/64"'),
-        (32, '13/16"'),
-        (16, '13/16"'),
-        (8, '3/4"'),
-        (4, '3/4"'),
-        (2, '1"'),
+        (Fraction(53, 64), 64, '53/64"', does_not_raise),
+        (Fraction(53, 64), 32, '13/16"', does_not_raise),
+        (Fraction(53, 64), 16, '13/16"', does_not_raise),
+        (Fraction(53, 64), 8, '7/8"', does_not_raise),
+        (Fraction(13, 16), 4, '3/4"', does_not_raise),
+        (Fraction(9, 16), 2, '1/2"', does_not_raise),
+        (Fraction(13, 16), 1, '1"', does_not_raise),
+        (Fraction(1, 2), 65, None, pytest.raises(ValueError)),
+        (Fraction(1, 2), 63, None, pytest.raises(ValueError)),
     ],
 )
-def test_precision(precision: int, string: str):
-    assert str(Measurement(fraction=Fraction(51, 64), precision=precision)) == string
+def test_precision(
+    fraction: Fraction, precision: int, string: str, expect: contextmanager
+):
+    with expect:
+        assert str(Measurement(fraction=fraction, precision=precision)) == string
 
 
 @pytest.mark.parametrize(
@@ -80,7 +116,7 @@ def test_multiply(
 @pytest.mark.parametrize(
     "string, factor, expected",
     [
-        ("12", 2, Measurement(inches=6)),
+        ('12"', 2, Measurement(inches=6)),
         ('13"', 3, Measurement(inches=4, fraction=Fraction(1, 3))),
         ("4'", 4, Measurement(feet=1)),
     ],
@@ -91,3 +127,14 @@ def test_divide(
     expected: Measurement,
 ):
     assert Measurement.from_string(string) / factor == expected
+
+
+def test_example():
+    PRECISION: int = 16
+
+    widths: List[str] = ['3 13/32"', '16 48/64"', '16 1/2"', '6 3/4"']
+    sum_widths: Measurement = sum(
+        [Measurement.from_string(w, precision=PRECISION) for w in widths]
+    )
+    double_width: Measurement = sum_widths * 2
+    assert str(double_width) == '86 13/16"'
