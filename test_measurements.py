@@ -138,3 +138,10 @@ def test_example():
     )
     double_width: Measurement = sum_widths * 2
     assert str(double_width) == '86 13/16"'
+
+
+def test_string_addition():
+    m = Measurement()
+    m += '16 1/2"'
+    m -= '1 3/16"'
+    assert str(m) == '15 5/16"'

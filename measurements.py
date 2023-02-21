@@ -105,20 +105,32 @@ class Measurement:
 
         raise ValueError(f"Cannot parse {string} as Measurement")
 
-    def __add__(self, other: Union["Measurement", Real]) -> "Measurement":
+    def __add__(self, other: Union["Measurement", Real, str]) -> "Measurement":
         if type(other) is Measurement:
             return Measurement(
                 self._distance + other._distance,
-                precision=max(self._precision, other._precision),
+                precision=min(self._precision, other._precision),
+            )
+
+        if type(other) is str:
+            return Measurement(
+                self._distance + Measurement.from_string(other)._distance,
+                precision=self._precision,
             )
 
         return Measurement(self._distance + other)
 
-    def __sub__(self, other: Union["Measurement", Real]) -> "Measurement":
+    def __sub__(self, other: Union["Measurement", Real, str]) -> "Measurement":
         if type(other) is Measurement:
             return Measurement(
                 self._distance - other._distance,
-                precision=max(self._precision, other._precision),
+                precision=min(self._precision, other._precision),
+            )
+
+        if type(other) is str:
+            return Measurement(
+                self._distance - Measurement.from_string(other)._distance,
+                precision=self._precision,
             )
 
         return Measurement(self._distance - other)
