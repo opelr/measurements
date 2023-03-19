@@ -184,4 +184,4 @@ class Measurement:
         return output
 
     def __repr__(self) -> str:
-        return f"Measurement({str(self)})"
+        return str(self)
